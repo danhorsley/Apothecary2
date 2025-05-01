@@ -52,8 +52,8 @@ namespace ApothecaryGame
     // Ingredient class with name, type and rarity
     public class Ingredient
     {
-        public required string Name { get; set; }
-        public required string Type { get; set; }
+        public string Name { get; set; }
+        public string Type { get; set; }
         public int Rarity { get; set; }
     }
 
@@ -145,9 +145,9 @@ namespace ApothecaryGame
     // Customer class for shop interactions
     public class Customer
     {
-        public required string Name { get; set; }
-        public required string Type { get; set; } // e.g., Adventurer, Merchant, Scholar
-        public required string Need { get; set; } // Required potion effect
+        public string Name { get; set; }
+        public string Type { get; set; } // e.g., Adventurer, Merchant, Scholar
+        public string Need { get; set; } // Required potion effect
         public int Reward { get; set; } // Gold reward for correct potion
 
         private static Random random = new Random();
@@ -226,7 +226,7 @@ namespace ApothecaryGame
 
         public TileType Type { get; set; } = TileType.Empty;
         public HazardType Hazard { get; set; } = HazardType.None;
-        public Ingredient? Ingredient { get; set; } = null;
+        public Ingredient Ingredient { get; set; } = null;
         public bool Explored { get; set; } = false;
 
         public int GetHazardDamage()
