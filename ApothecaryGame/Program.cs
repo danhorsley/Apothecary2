@@ -7,7 +7,7 @@ namespace ApothecaryGame
         [STAThread]
         static void Main()
         {
-            using (var game = new DraggableItemsGame())
+            using (var game = new AlchemyGame())
                 game.Run();
         }
     }

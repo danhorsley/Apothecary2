@@ -7,7 +7,7 @@ namespace ApothecaryGame
 {
     public class SpriteManager
     {
-        private Game1 _game;
+        private Game _game;
         private Dictionary<string, Texture2D> _sprites = new Dictionary<string, Texture2D>();
 
         // Constants for sprite sizes
@@ -15,7 +15,7 @@ namespace ApothecaryGame
         public const int PotionSize = 32;
         public const int TileSize = 32;
 
-        public SpriteManager(Game1 game)
+        public SpriteManager(Game game)
         {
             _game = game;
         }

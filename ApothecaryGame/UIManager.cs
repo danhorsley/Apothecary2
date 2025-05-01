@@ -1,341 +1,297 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Myra;
-using Myra.Graphics2D.UI;
-using Myra.Graphics2D.Brushes;
-using Myra.Graphics2D.TextureAtlases;
-using FontStashSharp;
 using System;
+using System.Collections.Generic;
 
 namespace ApothecaryGame
 {
+    /// <summary>
+    /// Manages all UI elements and interactions
+    /// </summary>
     public class UIManager
     {
-        private Desktop _desktop = null!;
-        private Panel _mainPanel = null!;
-        private Label _stateLabel = null!;
-        private Label _goldLabel = null!;
-        private Label _healthLabel = null!;
-
-        private Game1 _game;
-        private SpriteFontBase _defaultFont = null!;
-
-        public UIManager(Game1 game)
+        private readonly Game _game;
+        private readonly RenderHelper _renderHelper;
+        private SpriteFont _font;
+        
+        // UI areas
+        private Rectangle _herbsArea;
+        private Rectangle _mineralsArea;
+        private Rectangle _oilsArea;
+        private Rectangle _spiritsArea;
+        
+        // Button areas
+        private Rectangle _brewButton;
+        private Rectangle _tasteButton;
+        private Rectangle _gatherButton;
+        
+        // Button textures
+        private Texture2D _buttonTexture;
+        
+        // Tooltip handling
+        private DraggableItem _hoveredItem;
+        
+        public UIManager(Game game, RenderHelper renderHelper)
         {
             _game = game;
-
-            // Initialize Myra
-            MyraEnvironment.Game = game;
+            _renderHelper = renderHelper;
         }
-
-        public void LoadContent()
+        
+        public void Initialize(int screenWidth, int screenHeight)
         {
-            try
-            {
-                // Create a default FontSystem for Myra
-                var fontSystem = new FontSystem();
-                fontSystem.AddFont(TitleContainer.OpenStream("Content/Font.ttf"));
-                _defaultFont = fontSystem.GetFont(16);
-
-                // Create UI
-                CreateUI();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error loading UI content: {ex.Message}");
-                // Create a minimal UI anyway
-                CreateMinimalUI();
-            }
+            // Calculate UI layout based on screen size
+            InitializeUILayout(screenWidth, screenHeight);
         }
-
-        private void CreateMinimalUI()
+        
+        private void InitializeUILayout(int screenWidth, int screenHeight)
         {
-            // Create main panel
-            _mainPanel = new Panel
-            {
-                Width = 800,
-                Height = 600
-            };
-
-            // Create desktop
-            _desktop = new Desktop();
-            _desktop.Root = _mainPanel;
+            // Category areas - adjust for different screen sizes
+            int categoryWidth = (int)(screenWidth * 0.4f);
+            int categoryHeight = (int)(screenHeight * 0.24f);
+            int horizontalSpacing = (int)(screenWidth * 0.05f);
+            int verticalSpacing = (int)(screenHeight * 0.25f);
+            
+            _herbsArea = new Rectangle(horizontalSpacing, horizontalSpacing, 
+                                      categoryWidth, categoryHeight);
+            
+            _mineralsArea = new Rectangle(screenWidth - horizontalSpacing - categoryWidth, 
+                                         horizontalSpacing, categoryWidth, categoryHeight);
+            
+            _oilsArea = new Rectangle(horizontalSpacing, 
+                                     screenHeight - verticalSpacing - categoryHeight, 
+                                     categoryWidth, categoryHeight);
+            
+            _spiritsArea = new Rectangle(screenWidth - horizontalSpacing - categoryWidth, 
+                                        screenHeight - verticalSpacing - categoryHeight, 
+                                        categoryWidth, categoryHeight);
+            
+            // Action buttons
+            int buttonWidth = 120;
+            int buttonHeight = 40;
+            int buttonY = (int)(screenHeight * 0.85f);
+            int buttonSpacing = 30;
+            
+            _brewButton = new Rectangle((int)(screenWidth * 0.55f), buttonY, 
+                                       buttonWidth, buttonHeight);
+            
+            _tasteButton = new Rectangle(_brewButton.Right + buttonSpacing, buttonY, 
+                                        buttonWidth, buttonHeight);
+            
+            _gatherButton = new Rectangle(_tasteButton.Right + buttonSpacing, buttonY, 
+                                         buttonWidth, buttonHeight);
         }
-
-        private void CreateUI()
+        
+        public void LoadContent(SpriteFont font)
         {
-            // Create main panel
-            _mainPanel = new Panel
-            {
-                Width = 800,
-                Height = 600
-            };
-
-            // Create labels for player stats
-            _stateLabel = new Label
-            {
-                Text = "Current State: Shop",
-                Font = _defaultFont,
-                Left = 10,
-                Top = 10
-            };
-
-            _goldLabel = new Label
-            {
-                Text = "Gold: 100",
-                Font = _defaultFont,
-                Left = 10,
-                Top = 40,
-                TextColor = Color.Yellow
-            };
-
-            _healthLabel = new Label
-            {
-                Text = "Health: 100",
-                Font = _defaultFont,
-                Left = 10,
-                Top = 70,
-                TextColor = Color.Red
-            };
-
-            // Add labels to panel
-            _mainPanel.Widgets.Add(_stateLabel);
-            _mainPanel.Widgets.Add(_goldLabel);
-            _mainPanel.Widgets.Add(_healthLabel);
-
-            // Create desktop
-            _desktop = new Desktop();
-            _desktop.Root = _mainPanel;
+            _font = font;
+            
+            // Create button texture
+            _buttonTexture = _renderHelper.CreateRectangleTexture(120, 40, Color.LightGray);
         }
-
-        public void UpdateUI(GameState currentState, Player player)
+        
+        /// <summary>
+        /// Updates UI state based on mouse position
+        /// </summary>
+        public void Update(Point mousePosition, List<DraggableItem> items, DraggableItem draggedItem)
         {
-            if (_stateLabel != null)
-                _stateLabel.Text = $"Current State: {currentState}";
-
-            if (_goldLabel != null)
-                _goldLabel.Text = $"Gold: {player.Gold}";
-
-            if (_healthLabel != null)
-                _healthLabel.Text = $"Health: {player.Health}";
-        }
-
-        public void Draw()
-        {
-            _desktop.Render();
-        }
-
-        // Add shop UI
-        public void CreateShopUI(Customer customer)
-        {
-            // Clear existing widgets except for the basic stats
-            while (_mainPanel.Widgets.Count > 3)
+            // Update hover state for tooltips
+            _hoveredItem = null;
+            
+            if (draggedItem == null)
             {
-                _mainPanel.Widgets.RemoveAt(3);
-            }
-
-            // Customer info
-            var customerLabel = new Label
-            {
-                Text = $"Customer: {customer.Name} ({customer.Type})",
-                Font = _defaultFont,
-                Left = 200,
-                Top = 150
-            };
-
-            var needLabel = new Label
-            {
-                Text = $"Needs: {customer.Need} potion",
-                Font = _defaultFont,
-                Left = 200,
-                Top = 180
-            };
-
-            var rewardLabel = new Label
-            {
-                Text = $"Reward: {customer.Reward} gold",
-                Font = _defaultFont,
-                Left = 200,
-                Top = 210,
-                TextColor = Color.Yellow
-            };
-
-            // Add to panel
-            _mainPanel.Widgets.Add(customerLabel);
-            _mainPanel.Widgets.Add(needLabel);
-            _mainPanel.Widgets.Add(rewardLabel);
-
-            // Create buttons for state changes
-            var mixButton = new Button();
-            var mixLabel = new Label
-            {
-                Text = "Go to Mixing",
-                Font = _defaultFont
-            };
-            mixButton.Content = mixLabel;
-            mixButton.Left = 200;
-            mixButton.Top = 300;
-            mixButton.Width = 150;
-            mixButton.Click += (s, e) => _game.ChangeState(GameState.Mixing);
-
-            var exploreButton = new Button();
-            var exploreLabel = new Label
-            {
-                Text = "Go Exploring",
-                Font = _defaultFont
-            };
-            exploreButton.Content = exploreLabel;
-            exploreButton.Left = 400;
-            exploreButton.Top = 300;
-            exploreButton.Width = 150;
-            exploreButton.Click += (s, e) => _game.ChangeState(GameState.Exploration);
-
-            _mainPanel.Widgets.Add(mixButton);
-            _mainPanel.Widgets.Add(exploreButton);
-        }
-
-        // Add potion mixing UI
-        public void CreateMixingUI(Player player, RecipeBook recipeBook)
-        {
-            // Clear existing widgets except for the basic stats
-            while (_mainPanel.Widgets.Count > 3)
-            {
-                _mainPanel.Widgets.RemoveAt(3);
-            }
-
-            // Title
-            var titleLabel = new Label
-            {
-                Text = "Potion Mixing",
-                Font = _defaultFont,
-                Left = 350,
-                Top = 120
-            };
-
-            _mainPanel.Widgets.Add(titleLabel);
-
-            // Ingredient list
-            var inventoryLabel = new Label
-            {
-                Text = "Your Ingredients:",
-                Font = _defaultFont,
-                Left = 200,
-                Top = 160
-            };
-
-            _mainPanel.Widgets.Add(inventoryLabel);
-
-            int y = 190;
-            for (int i = 0; i < player.Inventory.Count; i++)
-            {
-                var ingredient = player.Inventory[i];
-                var ingredientButton = new Button();
-                var ingredientLabel = new Label
+                foreach (var item in items)
                 {
-                    Text = $"{ingredient.Name} ({ingredient.Type}, Rarity: {ingredient.Rarity})",
-                    Font = _defaultFont
-                };
-                ingredientButton.Content = ingredientLabel;
-                ingredientButton.Left = 200;
-                ingredientButton.Top = y;
-                ingredientButton.Width = 250;
-
-                int index = i; // Capture for lambda
-                ingredientButton.Click += (s, e) => _game.SelectIngredient(index);
-
-                _mainPanel.Widgets.Add(ingredientButton);
-                y += 30;
+                    if (item.Contains(mousePosition))
+                    {
+                        _hoveredItem = item;
+                        break;
+                    }
+                }
             }
-
-            // Recipe book
-            var recipeLabel = new Label
-            {
-                Text = "Known Recipes:",
-                Font = _defaultFont,
-                Left = 500,
-                Top = 160
-            };
-
-            _mainPanel.Widgets.Add(recipeLabel);
-
-            y = 190;
-            foreach (var recipe in recipeBook.KnownRecipes)
-            {
-                var recipeInfo = new Label
-                {
-                    Text = $"{recipe.Effect} (Value: {recipe.Value})",
-                    Font = _defaultFont,
-                    Left = 500,
-                    Top = y
-                };
-
-                _mainPanel.Widgets.Add(recipeInfo);
-                y += 30;
-            }
-
-            // Navigation buttons
-            var shopButton = new Button();
-            var shopLabel = new Label
-            {
-                Text = "Return to Shop",
-                Font = _defaultFont
-            };
-            shopButton.Content = shopLabel;
-            shopButton.Left = 200;
-            shopButton.Top = 500;
-            shopButton.Width = 150;
-            shopButton.Click += (s, e) => _game.ChangeState(GameState.Shop);
-
-            var exploreButton = new Button();
-            var exploreLabel = new Label
-            {
-                Text = "Go Exploring",
-                Font = _defaultFont
-            };
-            exploreButton.Content = exploreLabel;
-            exploreButton.Left = 400;
-            exploreButton.Top = 500;
-            exploreButton.Width = 150;
-            exploreButton.Click += (s, e) => _game.ChangeState(GameState.Exploration);
-
-            _mainPanel.Widgets.Add(shopButton);
-            _mainPanel.Widgets.Add(exploreButton);
         }
-
-        // Create exploration UI
-        public void CreateExplorationUI(Forest forest, Player player)
+        
+        /// <summary>
+        /// Checks if a point is within the brew button
+        /// </summary>
+        public bool IsPointInBrewButton(Point point)
         {
-            // Clear existing widgets except for the basic stats
-            while (_mainPanel.Widgets.Count > 3)
+            return _brewButton.Contains(point);
+        }
+        
+        /// <summary>
+        /// Checks if a point is within the taste button
+        /// </summary>
+        public bool IsPointInTasteButton(Point point)
+        {
+            return _tasteButton.Contains(point);
+        }
+        
+        /// <summary>
+        /// Checks if a point is within the gather button
+        /// </summary>
+        public bool IsPointInGatherButton(Point point)
+        {
+            return _gatherButton.Contains(point);
+        }
+        
+        /// <summary>
+        /// Gets the category area that contains the given point
+        /// </summary>
+        public IngredientType? GetCategoryAtPoint(Point point)
+        {
+            if (_herbsArea.Contains(point))
+                return IngredientType.Herb;
+            if (_mineralsArea.Contains(point))
+                return IngredientType.Mineral;
+            if (_oilsArea.Contains(point))
+                return IngredientType.Oil;
+            if (_spiritsArea.Contains(point))
+                return IngredientType.Spirit;
+            
+            return null;
+        }
+        
+        /// <summary>
+        /// Gets the herbs area rectangle
+        /// </summary>
+        public Rectangle GetHerbsArea()
+        {
+            return _herbsArea;
+        }
+        
+        /// <summary>
+        /// Gets the minerals area rectangle
+        /// </summary>
+        public Rectangle GetMineralsArea()
+        {
+            return _mineralsArea;
+        }
+        
+        /// <summary>
+        /// Gets the oils area rectangle
+        /// </summary>
+        public Rectangle GetOilsArea()
+        {
+            return _oilsArea;
+        }
+        
+        /// <summary>
+        /// Gets the spirits area rectangle
+        /// </summary>
+        public Rectangle GetSpiritsArea()
+        {
+            return _spiritsArea;
+        }
+        
+        /// <summary>
+        /// Draws all UI elements
+        /// </summary>
+        public void Draw(SpriteBatch spriteBatch)
+        {
+            // Draw category areas
+            DrawCategoryAreas(spriteBatch);
+            
+            // Draw buttons
+            DrawButtons(spriteBatch);
+            
+            // Draw tooltip if needed
+            if (_hoveredItem != null)
             {
-                _mainPanel.Widgets.RemoveAt(3);
+                DrawTooltip(spriteBatch, _hoveredItem, new Point(
+                    (int)_hoveredItem.Position.X, (int)_hoveredItem.Position.Y));
             }
-
-            // Title
-            var titleLabel = new Label
+        }
+        
+        private void DrawCategoryAreas(SpriteBatch spriteBatch)
+        {
+            // Draw each category area with appropriate color and label
+            _renderHelper.DrawRectangleWithBorder(spriteBatch, _herbsArea, 
+                                                Color.DarkOliveGreen * 0.5f, Color.White);
+            _renderHelper.DrawRectangleWithBorder(spriteBatch, _mineralsArea, 
+                                                Color.SteelBlue * 0.5f, Color.White);
+            _renderHelper.DrawRectangleWithBorder(spriteBatch, _oilsArea, 
+                                               Color.Sienna * 0.5f, Color.White);
+            _renderHelper.DrawRectangleWithBorder(spriteBatch, _spiritsArea, 
+                                               Color.MediumPurple * 0.5f, Color.White);
+            
+            // Draw category labels
+            _renderHelper.DrawText(spriteBatch, _font, "Herbs & Spices", 
+                                 new Vector2(_herbsArea.X + 10, _herbsArea.Y + 10), 
+                                 Color.White, true);
+            _renderHelper.DrawText(spriteBatch, _font, "Minerals", 
+                                 new Vector2(_mineralsArea.X + 10, _mineralsArea.Y + 10), 
+                                 Color.White, true);
+            _renderHelper.DrawText(spriteBatch, _font, "Oils & Animal Products", 
+                                 new Vector2(_oilsArea.X + 10, _oilsArea.Y + 10), 
+                                 Color.White, true);
+            _renderHelper.DrawText(spriteBatch, _font, "Spirits", 
+                                 new Vector2(_spiritsArea.X + 10, _spiritsArea.Y + 10), 
+                                 Color.White, true);
+        }
+        
+        private void DrawButtons(SpriteBatch spriteBatch)
+        {
+            // Draw the action buttons
+            spriteBatch.Draw(_buttonTexture, _brewButton, Color.White);
+            spriteBatch.Draw(_buttonTexture, _tasteButton, Color.White);
+            spriteBatch.Draw(_buttonTexture, _gatherButton, Color.White);
+            
+            // Draw button labels
+            _renderHelper.DrawText(spriteBatch, _font, "BREW", 
+                                 new Vector2(_brewButton.X + 35, _brewButton.Y + 10), 
+                                 Color.Black);
+            _renderHelper.DrawText(spriteBatch, _font, "TASTE", 
+                                 new Vector2(_tasteButton.X + 30, _tasteButton.Y + 10), 
+                                 Color.Black);
+            _renderHelper.DrawText(spriteBatch, _font, "GATHER", 
+                                 new Vector2(_gatherButton.X + 25, _gatherButton.Y + 10), 
+                                 Color.Black);
+        }
+        
+        private void DrawTooltip(SpriteBatch spriteBatch, DraggableItem item, Point position)
+        {
+            // Tooltip text
+            string tooltip = $"{item.Name}\n{item.Properties}";
+            
+            // Calculate size
+            Vector2 tooltipSize = _font != null ? 
+                _font.MeasureString(tooltip) : new Vector2(tooltip.Length * 7, 30);
+            
+            // Add padding
+            Rectangle tooltipRect = new Rectangle(
+                position.X + 20, 
+                position.Y + 20, 
+                (int)tooltipSize.X + 20, 
+                (int)tooltipSize.Y + 20);
+            
+            // Draw tooltip background
+            _renderHelper.DrawRectangleWithBorder(spriteBatch, tooltipRect, 
+                                               Color.Black * 0.8f, Color.White);
+            
+            // Draw tooltip text
+            string[] lines = tooltip.Split('\n');
+            for (int i = 0; i < lines.Length; i++)
             {
-                Text = "Forest Exploration",
-                Font = _defaultFont,
-                Left = 350,
-                Top = 120
-            };
-
-            _mainPanel.Widgets.Add(titleLabel);
-
-            // Return button
-            var returnButton = new Button();
-            var returnLabel = new Label
-            {
-                Text = "Return to Shop",
-                Font = _defaultFont
-            };
-            returnButton.Content = returnLabel;
-            returnButton.Left = 350;
-            returnButton.Top = 500;
-            returnButton.Width = 150;
-            returnButton.Click += (s, e) => _game.ChangeState(GameState.Shop);
-
-            _mainPanel.Widgets.Add(returnButton);
+                _renderHelper.DrawText(spriteBatch, _font, lines[i], 
+                                     new Vector2(tooltipRect.X + 10, tooltipRect.Y + 10 + i * 20), 
+                                     Color.White);
+            }
+        }
+        
+        /// <summary>
+        /// Draws an individual draggable item
+        /// </summary>
+        public void DrawItem(SpriteBatch spriteBatch, DraggableItem item)
+        {
+            // Draw item texture
+            spriteBatch.Draw(item.Texture, 
+                           new Rectangle((int)item.Position.X, (int)item.Position.Y, item.Size, item.Size), 
+                           Color.White);
+            
+            // Draw item name below
+            _renderHelper.DrawText(spriteBatch, _font, item.Name, 
+                                 new Vector2(item.Position.X, item.Position.Y + item.Size + 5), 
+                                 Color.White);
         }
     }
 }
