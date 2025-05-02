@@ -37,6 +37,8 @@ namespace ApothecaryGame
         // Loading screen assets
         private Texture2D _loadingBackground;
         private Texture2D _cauldronTexture;
+        private Texture2D _titleTexture;
+
         private List<Particle> _bubbles = new List<Particle>();
         private List<Particle> _sparkles = new List<Particle>();
         private Random _random = new Random();
@@ -72,24 +74,21 @@ namespace ApothecaryGame
         
         public void Initialize(int screenWidth, int screenHeight)
         {
-            // Set up menu buttons
+            // Set up menu buttons along the bottom
             int buttonWidth = 200;
             int buttonHeight = 60;
             int buttonSpacing = 40;
-            int startY = screenHeight / 2;
+            int buttonY = screenHeight - buttonHeight - 40; // Position near bottom
             
-            _menuButtons[0] = new Rectangle(screenWidth / 2 - buttonWidth / 2, 
-                                          startY - buttonHeight - buttonSpacing,
-                                          buttonWidth, buttonHeight);
-                                          
-            _menuButtons[1] = new Rectangle(screenWidth / 2 - buttonWidth / 2, 
-                                          startY,
-                                          buttonWidth, buttonHeight);
-                                          
-            _menuButtons[2] = new Rectangle(screenWidth / 2 - buttonWidth / 2, 
-                                          startY + buttonHeight + buttonSpacing,
-                                          buttonWidth, buttonHeight);
-                                          
+            // Calculate total width of all buttons + spacing
+            int totalWidth = (buttonWidth * 3) + (buttonSpacing * 2);
+            int startX = (screenWidth - totalWidth) / 2; // Center horizontally
+            
+            // Position buttons in a row along the bottom
+            _menuButtons[0] = new Rectangle(startX, buttonY, buttonWidth, buttonHeight);
+            _menuButtons[1] = new Rectangle(startX + buttonWidth + buttonSpacing, buttonY, buttonWidth, buttonHeight);
+            _menuButtons[2] = new Rectangle(startX + (buttonWidth + buttonSpacing) * 2, buttonY, buttonWidth, buttonHeight);
+            
             // Initialize particles
             CreateParticles();
         }
@@ -105,12 +104,33 @@ namespace ApothecaryGame
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading fonts: {ex.Message}");
-                // Will fall back to drawing rectangles
             }
             
-            // Create textures
-            _loadingBackground = CreateLoadingBackground();
-            _menuBackground = CreateMenuBackground();
+            // Load background images
+            try
+            {
+                // Replace with your own background images - add these to your Content project
+                _loadingBackground = _game.Content.Load<Texture2D>("Backgrounds/LoadingBackground");
+                _menuBackground = _game.Content.Load<Texture2D>("Backgrounds/MenuBackground");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading backgrounds: {ex.Message} - falling back to generated textures");
+                // Create fallback textures
+                _loadingBackground = CreateLoadingBackground();
+                _menuBackground = CreateMenuBackground();
+            }
+             // Load title image
+            try
+            {
+                _titleTexture = _game.Content.Load<Texture2D>("UI/TitleLogo");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading title logo: {ex.Message}");
+                // We'll handle this in the Draw method by falling back to text
+            }
+            // Other texture creation
             _buttonTexture = _renderHelper.CreateRectangleTexture(200, 60, Color.DarkGreen);
             _cauldronTexture = CreateCauldronTexture();
         }
@@ -345,29 +365,45 @@ namespace ApothecaryGame
             int screenWidth = _game.GraphicsDevice.Viewport.Width;
             int screenHeight = _game.GraphicsDevice.Viewport.Height;
             
-            // Determine if this sparkle is for title or around the cauldron
-            bool isForTitle = _random.NextDouble() > 0.5;
+            // For the menu, we want to focus sparkles around the title in top left
+            bool focusOnTopLeft = _currentState == GameState.MainMenu && _random.NextDouble() > 0.6;
             
             Vector2 basePosition;
-            if (isForTitle)
+            if (focusOnTopLeft)
             {
-                // Position around the title area
+                // Position around the top-left title area
                 basePosition = new Vector2(
-                    screenWidth / 2,
-                    screenHeight / 3
+                    100, // Approximation of title center X
+                    60   // Approximation of title center Y
                 );
             }
-            else
+            else if (_currentState == GameState.Loading && _random.NextDouble() > 0.5)
             {
-                // Position around the cauldron
+                // For loading screen, focus on the upper area where title would be
+                basePosition = new Vector2(
+                    screenWidth / 2,
+                    screenHeight / 4
+                );
+            }
+            else if (_random.NextDouble() > 0.7)
+            {
+                // Some sparkles around the cauldron
                 basePosition = new Vector2(
                     screenWidth / 2,
                     screenHeight / 2 + 20
                 );
             }
+            else
+            {
+                // Random position throughout the screen
+                basePosition = new Vector2(
+                    _random.Next(screenWidth),
+                    _random.Next(screenHeight)
+                );
+            }
             
             // Add random offset
-            float radius = isForTitle ? 150 : 70;
+            float radius = focusOnTopLeft ? 80 : 150; // Tighter clustering for title area
             float angle = (float)(_random.NextDouble() * Math.PI * 2);
             
             // Create sparkle particle
@@ -593,43 +629,30 @@ namespace ApothecaryGame
         
         private void DrawLoadingScreen(SpriteBatch spriteBatch)
         {
-            // Draw background
+            // Draw background (your custom image will already have the title)
             spriteBatch.Draw(_loadingBackground, 
-                           new Rectangle(0, 0, _game.GraphicsDevice.Viewport.Width, _game.GraphicsDevice.Viewport.Height), 
-                           Color.White);
+                        new Rectangle(0, 0, _game.GraphicsDevice.Viewport.Width, _game.GraphicsDevice.Viewport.Height), 
+                        Color.White);
             
             int screenWidth = _game.GraphicsDevice.Viewport.Width;
             int screenHeight = _game.GraphicsDevice.Viewport.Height;
             
-            // Draw title with pulsating effect
-            string title = "APOTHECARY";
+            // No title drawing here since your background already has it
             
-            if (_titleFont != null)
+            // Draw tagline (you might want to keep this or remove it)
+            string tagline = "Brew. Sell. Explore.";
+            if (_menuFont != null)
             {
-                Vector2 titleSize = _titleFont.MeasureString(title);
-                Vector2 titlePos = new Vector2(
-                    screenWidth / 2 - titleSize.X / 2 * _titlePulse,
-                    screenHeight / 3 - titleSize.Y / 2 * _titlePulse
-                );
-                
-                // Draw shadow
-                spriteBatch.DrawString(_titleFont, title, 
-                                     titlePos + new Vector2(3, 3), 
-                                     Color.Black * 0.7f, 
-                                     0f, Vector2.Zero, _titlePulse, SpriteEffects.None, 0);
-                
-                // Draw glowing text
-                spriteBatch.DrawString(_titleFont, title, 
-                                     titlePos, 
-                                     new Color(255, 230, 100) * (0.7f + (float)Math.Sin(_animationTimer * 3) * 0.3f), 
-                                     0f, Vector2.Zero, _titlePulse, SpriteEffects.None, 0);
+                Vector2 taglineSize = _menuFont.MeasureString(tagline);
+                spriteBatch.DrawString(_menuFont, tagline, 
+                                    new Vector2(screenWidth / 2 - taglineSize.X / 2, screenHeight / 3 + 50), 
+                                    new Color(200, 200, 255) * (0.7f + (float)Math.Sin(_animationTimer * 2) * 0.3f));
             }
             else
             {
-                // Fallback if font not loaded
-                _renderHelper.DrawText(spriteBatch, null, title, 
-                                     new Vector2(screenWidth / 2 - 80, screenHeight / 3 - 20), 
-                                     Color.Gold, true);
+                _renderHelper.DrawText(spriteBatch, null, tagline, 
+                                    new Vector2(screenWidth / 2 - 80, screenHeight / 3 + 50), 
+                                    Color.LightBlue);
             }
             
             // Draw cauldron
@@ -641,32 +664,21 @@ namespace ApothecaryGame
             );
             spriteBatch.Draw(_cauldronTexture, cauldronRect, Color.White);
             
-            // Draw tagline
-            string tagline = "Brew. Sell. Explore.";
-            if (_menuFont != null)
-            {
-                Vector2 taglineSize = _menuFont.MeasureString(tagline);
-                spriteBatch.DrawString(_menuFont, tagline, 
-                                     new Vector2(screenWidth / 2 - taglineSize.X / 2, screenHeight / 3 + 50), 
-                                     new Color(200, 200, 255) * (0.7f + (float)Math.Sin(_animationTimer * 2) * 0.3f));
-            }
-            else
-            {
-                _renderHelper.DrawText(spriteBatch, null, tagline, 
-                                     new Vector2(screenWidth / 2 - 80, screenHeight / 3 + 50), 
-                                     Color.LightBlue);
-            }
-            
             // Draw bubbles
             foreach (var bubble in _bubbles)
             {
                 DrawCircle(spriteBatch, bubble.Position, bubble.Size, bubble.Color);
             }
             
-            // Draw sparkles
+            // Draw sparkles (all positioned over the upper third of the screen where title is)
             foreach (var sparkle in _sparkles)
             {
-                DrawStar(spriteBatch, sparkle.Position, sparkle.Size, sparkle.Color);
+                // Adjust position of sparkles to focus on the upper area
+                Vector2 adjustedPosition = new Vector2(
+                    sparkle.Position.X,
+                    sparkle.Position.Y * 0.4f  // Compress Y range to upper portion
+                );
+                DrawStar(spriteBatch, adjustedPosition, sparkle.Size, sparkle.Color);
             }
             
             // Draw loading bar
@@ -688,13 +700,13 @@ namespace ApothecaryGame
             
             // Draw background of loading bar
             _renderHelper.DrawRectangleWithBorder(spriteBatch, loadingBarBg, 
-                                               new Color(20, 20, 20, 200), Color.Gray);
+                                            new Color(20, 20, 20, 200), Color.Gray);
             
             // Draw foreground of loading bar
             if (loadingBarFg.Width > 0)
             {
                 spriteBatch.Draw(_renderHelper.CreateRectangleTexture(1, 1, Color.Purple), 
-                               loadingBarFg, Color.White);
+                            loadingBarFg, Color.White);
             }
             
             // Draw loading text
@@ -703,15 +715,15 @@ namespace ApothecaryGame
             {
                 Vector2 loadingTextSize = _menuFont.MeasureString(loadingText);
                 spriteBatch.DrawString(_menuFont, loadingText, 
-                                     new Vector2(screenWidth / 2 - loadingTextSize.X / 2, 
+                                    new Vector2(screenWidth / 2 - loadingTextSize.X / 2, 
                                                 loadingBarBg.Y + loadingBarBg.Height + 10), 
-                                     Color.White);
+                                    Color.White);
             }
             else
             {
                 _renderHelper.DrawText(spriteBatch, null, loadingText, 
-                                     new Vector2(screenWidth / 2 - 60, loadingBarBg.Y + loadingBarBg.Height + 10), 
-                                     Color.White);
+                                    new Vector2(screenWidth / 2 - 60, loadingBarBg.Y + loadingBarBg.Height + 10), 
+                                    Color.White);
             }
             
             // Draw company logo or credit
@@ -720,15 +732,15 @@ namespace ApothecaryGame
             {
                 Vector2 creditSize = _menuFont.MeasureString(credit);
                 spriteBatch.DrawString(_menuFont, credit, 
-                                     new Vector2(screenWidth / 2 - creditSize.X / 2, 
+                                    new Vector2(screenWidth / 2 - creditSize.X / 2, 
                                                 screenHeight - 40), 
-                                     new Color(150, 150, 150));
+                                    new Color(150, 150, 150));
             }
             else
             {
                 _renderHelper.DrawText(spriteBatch, null, credit, 
-                                     new Vector2(screenWidth / 2 - 100, screenHeight - 40), 
-                                     Color.Gray);
+                                    new Vector2(screenWidth / 2 - 100, screenHeight - 40), 
+                                    Color.Gray);
             }
         }
         
@@ -736,39 +748,56 @@ namespace ApothecaryGame
         {
             // Draw background
             spriteBatch.Draw(_menuBackground, 
-                           new Rectangle(0, 0, _game.GraphicsDevice.Viewport.Width, _game.GraphicsDevice.Viewport.Height), 
-                           Color.White);
+                        new Rectangle(0, 0, _game.GraphicsDevice.Viewport.Width, _game.GraphicsDevice.Viewport.Height), 
+                        Color.White);
             
             int screenWidth = _game.GraphicsDevice.Viewport.Width;
             int screenHeight = _game.GraphicsDevice.Viewport.Height;
             
-            // Draw title
-            string title = "APOTHECARY";
-            
-            if (_titleFont != null)
+            // Draw title logo in top left corner, small size
+            if (_titleTexture != null)
             {
-                Vector2 titleSize = _titleFont.MeasureString(title);
+                // Scale down the title logo
+                float titleScale = 0.5f;  // Adjust this value to get the size you want
+                int titleWidth = (int)(_titleTexture.Width * titleScale);
+                int titleHeight = (int)(_titleTexture.Height * titleScale);
                 
-                // Draw shadow
-                spriteBatch.DrawString(_titleFont, title, 
-                                     new Vector2(screenWidth / 2 - titleSize.X / 2 + 3, 
-                                                screenHeight / 5 + 3), 
-                                     Color.Black * 0.7f);
+                // Position in top left with some margin
+                Rectangle titleRect = new Rectangle(
+                    20,  // Left margin
+                    20,  // Top margin
+                    titleWidth,
+                    titleHeight
+                );
                 
-                // Draw title with subtle glow
-                spriteBatch.DrawString(_titleFont, title, 
-                                     new Vector2(screenWidth / 2 - titleSize.X / 2, 
-                                                screenHeight / 5), 
-                                     new Color(255, 230, 100) * (0.8f + (float)Math.Sin(_animationTimer * 2) * 0.2f));
+                // Draw the title logo
+                spriteBatch.Draw(_titleTexture, titleRect, Color.White);
+                
+                // Draw sparkles over and around the title
+                foreach (var sparkle in _sparkles)
+                {
+                    // Check if this sparkle should be positioned over the title
+                    if (sparkle.Position.X < screenWidth / 3 && sparkle.Position.Y < screenHeight / 3)
+                    {
+                        // Adjust position to cover title area
+                        Vector2 adjustedPosition = new Vector2(
+                            sparkle.Position.X * 0.5f + titleRect.X,  // Compress X range to title area
+                            sparkle.Position.Y * 0.5f + titleRect.Y   // Compress Y range to title area
+                        );
+                        
+                        DrawStar(spriteBatch, adjustedPosition, sparkle.Size, sparkle.Color);
+                    }
+                }
             }
             else
             {
-                _renderHelper.DrawText(spriteBatch, null, title, 
-                                     new Vector2(screenWidth / 2 - 80, screenHeight / 5), 
-                                     Color.Gold, true);
+                // Fallback if title image not loaded
+                _renderHelper.DrawText(spriteBatch, null, "APOTHECARY", 
+                                    new Vector2(20, 20), 
+                                    Color.Gold, true);
             }
             
-            // Draw buttons
+            // Draw buttons (now at the bottom)
             string[] buttonLabels = { "Mix Potions", "Run Shop", "Explore" };
             
             for (int i = 0; i < _menuButtons.Length; i++)
@@ -778,7 +807,7 @@ namespace ApothecaryGame
                 
                 // Draw button
                 _renderHelper.DrawRectangleWithBorder(spriteBatch, _menuButtons[i], 
-                                                   buttonColor, Color.Gold, 2);
+                                                buttonColor, Color.Gold, 2);
                 
                 // Draw label
                 if (_menuFont != null)
@@ -786,15 +815,15 @@ namespace ApothecaryGame
                     Vector2 labelSize = _menuFont.MeasureString(buttonLabels[i]);
                     
                     spriteBatch.DrawString(_menuFont, buttonLabels[i], 
-                                         new Vector2(_menuButtons[i].X + _menuButtons[i].Width / 2 - labelSize.X / 2, 
+                                        new Vector2(_menuButtons[i].X + _menuButtons[i].Width / 2 - labelSize.X / 2, 
                                                     _menuButtons[i].Y + _menuButtons[i].Height / 2 - labelSize.Y / 2), 
-                                         (_selectedButton == i) ? Color.White : new Color(200, 200, 150));
+                                        (_selectedButton == i) ? Color.White : new Color(200, 200, 150));
                 }
                 else
                 {
                     _renderHelper.DrawText(spriteBatch, null, buttonLabels[i], 
-                                         new Vector2(_menuButtons[i].X + 50, _menuButtons[i].Y + 20), 
-                                         (_selectedButton == i) ? Color.White : Color.LightGray);
+                                        new Vector2(_menuButtons[i].X + 50, _menuButtons[i].Y + 20), 
+                                        (_selectedButton == i) ? Color.White : Color.LightGray);
                 }
                 
                 // Add a glow effect to selected button
@@ -812,30 +841,33 @@ namespace ApothecaryGame
                 }
             }
             
-            // Draw decorative elements
-            DrawDecorations(spriteBatch);
+            // No decorative bottles - removed as requested
             
-            // Draw sparkles
+            // Draw regular sparkles throughout the screen
             foreach (var sparkle in _sparkles)
             {
-                DrawStar(spriteBatch, sparkle.Position, sparkle.Size, sparkle.Color);
+                // Don't draw sparkles that were already drawn over the title
+                if (!(sparkle.Position.X < screenWidth / 3 && sparkle.Position.Y < screenHeight / 3))
+                {
+                    DrawStar(spriteBatch, sparkle.Position, sparkle.Size, sparkle.Color);
+                }
             }
             
-            // Draw footer text
+            // Draw footer instructions
             string footer = "Use arrow keys to navigate, Enter to select";
             if (_menuFont != null)
             {
                 Vector2 footerSize = _menuFont.MeasureString(footer);
                 spriteBatch.DrawString(_menuFont, footer, 
-                                     new Vector2(screenWidth / 2 - footerSize.X / 2, 
+                                    new Vector2(screenWidth / 2 - footerSize.X / 2, 
                                                 screenHeight - 40), 
-                                     Color.LightGray * 0.7f);
+                                    Color.LightGray * 0.7f);
             }
             else
             {
                 _renderHelper.DrawText(spriteBatch, null, footer, 
-                                     new Vector2(screenWidth / 2 - 150, screenHeight - 40), 
-                                     Color.Gray);
+                                    new Vector2(screenWidth / 2 - 150, screenHeight - 40), 
+                                    Color.Gray);
             }
         }
         
