@@ -20,14 +20,17 @@ namespace ApothecaryGame
         private CauldronManager _cauldronManager;
         private NotebookManager _notebookManager;
         private UIManager _uiManager;
+        private ScreenManager _screenManager; // New screen manager
         
         // Game state
+        private GameState _currentState = GameState.Loading; // Start with loading screen
         private List<DraggableItem> _items = new List<DraggableItem>();
         private DraggableItem _draggedItem;
         private Vector2 _dragOffset;
         
         // Resources
         private SpriteFont _font;
+        private SpriteFont _titleFont; // New font for titles
         
         // Input tracking
         private MouseState _currentMouseState;
@@ -56,6 +59,7 @@ namespace ApothecaryGame
             _renderHelper = new RenderHelper(this);
             _ingredientManager = new IngredientManager(this);
             _uiManager = new UIManager(this, _renderHelper);
+            _screenManager = new ScreenManager(this, _renderHelper); // Initialize screen manager
             
             // Initialize base components
             _renderHelper.Initialize();
@@ -63,6 +67,9 @@ namespace ApothecaryGame
             
             // Initialize UI with screen dimensions
             _uiManager.Initialize(_graphics.PreferredBackBufferWidth, _graphics.PreferredBackBufferHeight);
+            
+            // Initialize screen manager
+            _screenManager.Initialize(_graphics.PreferredBackBufferWidth, _graphics.PreferredBackBufferHeight);
             
             // Set up cauldron bounds
             int cauldronSize = 140;
@@ -98,10 +105,21 @@ namespace ApothecaryGame
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             
-            // Try to load font
+            // Try to load fonts
             try
             {
                 _font = Content.Load<SpriteFont>("Font");
+                
+                // Try to load title font (we'll fall back to regular font if not found)
+                try
+                {
+                    _titleFont = Content.Load<SpriteFont>("TitleFont");
+                }
+                catch
+                {
+                    // Use regular font as fallback
+                    _titleFont = _font;
+                }
             }
             catch (Exception ex)
             {
@@ -113,6 +131,7 @@ namespace ApothecaryGame
             _ingredientManager.LoadContent();
             _cauldronManager.LoadContent();
             _uiManager.LoadContent(_font);
+            _screenManager.LoadContent(); // Load content for screen manager
             
             // Create initial ingredients
             _items = _ingredientManager.CreateStarterIngredients(
@@ -134,13 +153,56 @@ namespace ApothecaryGame
                 Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
             
-            // Handle mouse input
-            HandleMouse();
+            // Update screen manager
+            GameState newState = _screenManager.Update(gameTime);
             
-            // Update UI state
-            _uiManager.Update(_currentMouseState.Position, _items, _draggedItem);
+            // If game state has changed, handle transition
+            if (newState != _currentState)
+            {
+                HandleStateTransition(newState);
+                _currentState = newState;
+            }
+            
+            // Only process gameplay if we're in a gameplay state
+            if (_currentState == GameState.MixingScreen || 
+                _currentState == GameState.ShopScreen || 
+                _currentState == GameState.ExplorationScreen)
+            {
+                // Handle mouse input
+                HandleMouse();
+                
+                // Update UI state
+                _uiManager.Update(_currentMouseState.Position, _items, _draggedItem);
+            }
             
             base.Update(gameTime);
+        }
+        
+        private void HandleStateTransition(GameState newState)
+        {
+            // Handle transitions between game states
+            // This is where we'd initialize specific components for each gameplay mode
+            switch (newState)
+            {
+                case GameState.MixingScreen:
+                    // Initialize mixing interface
+                    _notebookManager.AddToHistory("Welcome to your alchemy lab!");
+                    break;
+                    
+                case GameState.ShopScreen:
+                    // Initialize shop interface (not implemented in prototype)
+                    _notebookManager.AddToHistory("Shop mode not implemented in prototype");
+                    // Return to mixing for now
+                    _currentState = GameState.MixingScreen;
+                    break;
+                    
+                case GameState.ExplorationScreen:
+                    // Initialize exploration interface (not implemented in prototype)
+                    _notebookManager.AddToHistory("Exploration mode not implemented in prototype");
+                    // Return to mixing for now
+                    _currentState = GameState.MixingScreen;
+                    break;
+            }
         }
         
         private void HandleMouse()
@@ -234,6 +296,30 @@ namespace ApothecaryGame
             
             _spriteBatch.Begin();
             
+            // Draw current screen based on game state
+            switch (_currentState)
+            {
+                case GameState.Loading:
+                case GameState.MainMenu:
+                    // Draw loading screen or main menu
+                    _screenManager.Draw(_spriteBatch);
+                    break;
+                    
+                case GameState.MixingScreen:
+                case GameState.ShopScreen:
+                case GameState.ExplorationScreen:
+                    // Draw gameplay UI
+                    DrawGameplayScreen(gameTime);
+                    break;
+            }
+            
+            _spriteBatch.End();
+            
+            base.Draw(gameTime);
+        }
+        
+        private void DrawGameplayScreen(GameTime gameTime)
+        {
             // Draw UI elements
             _uiManager.Draw(_spriteBatch);
             
@@ -258,10 +344,6 @@ namespace ApothecaryGame
             {
                 _uiManager.DrawItem(_spriteBatch, _draggedItem);
             }
-            
-            _spriteBatch.End();
-            
-            base.Draw(gameTime);
         }
         
         #region Event Handlers
